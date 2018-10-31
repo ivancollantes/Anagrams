@@ -1,5 +1,7 @@
 package forcomp
 
+import forcomp.Anagrams.Occurrences
+
 
 object Anagrams {
 
@@ -74,19 +76,76 @@ object Anagrams {
    *    List(
    *      List(),
    *      List(('a', 1)),
-   *      List(('a', 2)),
-   *      List(('b', 1)),
    *      List(('a', 1), ('b', 1)),
-   *      List(('a', 2), ('b', 1)),
-   *      List(('b', 2)),
    *      List(('a', 1), ('b', 2)),
-   *      List(('a', 2), ('b', 2))
+   *      List(('a', 2)),
+   *      List(('a', 2), ('b', 1)),
+   *      List(('a', 2), ('b', 2)),
+   *      List(('b', 1)),
+   *      List(('b', 2))
    *    )
    *
    *  Note that the order of the occurrence list subsets does not matter -- the subsets
    *  in the example above could have been displayed in some other order.
    */
-  def combinations(occurrences: Occurrences): List[Occurrences] = ???
+  def combinations(occurrences: Occurrences): List[Occurrences] = {
+    /**
+      * extendedOccurrences:
+      * List(
+      *   List(('a', 1), ('a', 2)),
+      *   List(('b', 1), ('b', 2))
+      * )
+      */
+    val extendedOccurrences: List[Occurrences] = occurrences.foldLeft(List[Occurrences]()) {
+      (acc: List[Occurrences], pair: (Char, Int)) => (for (i <- 1 to pair._2) yield (pair._1, i)).toList :: acc
+    }.reverse  // extendedOccurrences: List[List[(Char, Int)]]
+
+    val grum: List[Occurrences] = for {
+      h <- extendedOccurrences.head
+      t <- extendedOccurrences.tail.head
+    } yield List(h, t)
+
+    val crom: List[Occurrences] = extendedOccurrences.flatten.map(List(_)) ::: grum
+    List()
+    /*
+     * Iterate over each pair of the head of extendedOccurrences and:
+     *  - 1st make a new List only with the pair, i.e. List(('a', 1))
+     *  - 2nd iterate over
+     */
+    /**
+      * List(('a', 2), ('b', 2)) -> List(('a', 1), ('a', 2), ('b', 1), ('b', 2))
+      *
+      * List(
+      *   List(('a', 1)),
+      *   List(('a', 1), ('b', 1)),
+      *   List(('a', 1), ('b', 2)),
+      *   List(('a', 2)),
+      *   List(('a', 2), ('b', 1)),
+      *   List(('a', 2), ('b', 2)),
+      *   List(('b', 1)),
+      *   List(('b', 2))
+      */
+//    def inner(extendedOccurrences: List[Occurrences], acc: List[Occurrences]): List[Occurrences] = {
+//      if (extendedOccurrences.isEmpty) acc
+//      else {
+//        val head: Occurrences = extendedOccurrences.head // List(('a', 1), ('a', 2))
+//        val tail: List[Occurrences] = extendedOccurrences.tail // List(('b', 1), ('b', 2))
+//        val currentAcc: List[Occurrences] = head.foldLeft(List[Occurrences]()) {
+//          (innerAcc: List[Occurrences], pair: (Char, Int)) =>
+//
+//
+//            val m: List[Occurrences] = tail.map(innerPair => List(pair, innerPair))
+//            List(pair) ::  ::: innerAcc
+//
+//
+//
+//        }
+//        inner(tail, currentAcc ::: acc)
+//      }
+//    }
+//
+//    inner(extendedOccurrences, List())
+  }
 
   /** Subtracts occurrence list `y` from occurrence list `x`.
    *
