@@ -37,7 +37,9 @@ object Anagrams {
    *  Note: you must use `groupBy` to implement this method!
    */
   def wordOccurrences(w: Word): Occurrences =
-    (w.toLowerCase groupBy { c: Char => c } map(pair => (pair._1, pair._2.length))).toList.sortWith(_._1 < _._1)
+    (w.toLowerCase groupBy { c: Char => c } map {
+      pair: (Char, String) => (pair._1, pair._2.length) }
+    ).toList.sortWith(_._1 < _._1)
 
   /** Converts a sentence into its character occurrence list. */
   def sentenceOccurrences(s: Sentence): Occurrences = wordOccurrences(s.flatten.mkString)
@@ -100,51 +102,10 @@ object Anagrams {
       (acc: List[Occurrences], pair: (Char, Int)) => (for (i <- 1 to pair._2) yield (pair._1, i)).toList :: acc
     }.reverse  // extendedOccurrences: List[List[(Char, Int)]]
 
-    val grum: List[Occurrences] = for {
-      h <- extendedOccurrences.head
-      t <- extendedOccurrences.tail.head
-    } yield List(h, t)
-
-    val crom: List[Occurrences] = extendedOccurrences.flatten.map(List(_)) ::: grum
-    List()
-    /*
-     * Iterate over each pair of the head of extendedOccurrences and:
-     *  - 1st make a new List only with the pair, i.e. List(('a', 1))
-     *  - 2nd iterate over
-     */
-    /**
-      * List(('a', 2), ('b', 2)) -> List(('a', 1), ('a', 2), ('b', 1), ('b', 2))
-      *
-      * List(
-      *   List(('a', 1)),
-      *   List(('a', 1), ('b', 1)),
-      *   List(('a', 1), ('b', 2)),
-      *   List(('a', 2)),
-      *   List(('a', 2), ('b', 1)),
-      *   List(('a', 2), ('b', 2)),
-      *   List(('b', 1)),
-      *   List(('b', 2))
-      */
-//    def inner(extendedOccurrences: List[Occurrences], acc: List[Occurrences]): List[Occurrences] = {
-//      if (extendedOccurrences.isEmpty) acc
-//      else {
-//        val head: Occurrences = extendedOccurrences.head // List(('a', 1), ('a', 2))
-//        val tail: List[Occurrences] = extendedOccurrences.tail // List(('b', 1), ('b', 2))
-//        val currentAcc: List[Occurrences] = head.foldLeft(List[Occurrences]()) {
-//          (innerAcc: List[Occurrences], pair: (Char, Int)) =>
-//
-//
-//            val m: List[Occurrences] = tail.map(innerPair => List(pair, innerPair))
-//            List(pair) ::  ::: innerAcc
-//
-//
-//
-//        }
-//        inner(tail, currentAcc ::: acc)
-//      }
-//    }
-//
-//    inner(extendedOccurrences, List())
+    extendedOccurrences.flatten.toSet[(Char, Int)].subsets.map(_.toList.sortWith(_._1 < _._1)).toList.filter { list: Occurrences => {
+      val distinctChars: List[Char] = list.map(_._1).distinct
+      list.length == distinctChars.length
+    }}
   }
 
   /** Subtracts occurrence list `y` from occurrence list `x`.
@@ -157,7 +118,12 @@ object Anagrams {
    *  Note: the resulting value is an occurrence - meaning it is sorted
    *  and has no zero-entries.
    */
-  def subtract(x: Occurrences, y: Occurrences): Occurrences = ???
+  def subtract(x: Occurrences, y: Occurrences): Occurrences = {
+    y.toMap[Char, Int].foldLeft(x.toMap[Char, Int]) { (xMap: Map[Char, Int], pair: (Char, Int)) => {
+      val valueDiff = xMap.apply(pair._1) - pair._2
+      if(valueDiff <= 0) xMap - pair._1 else xMap.updated(pair._1, valueDiff)
+    }}.toList.sortWith(_._1 < _._1)
+  }
 
   /** Returns a list of all anagram sentences of the given sentence.
    *
@@ -199,5 +165,49 @@ object Anagrams {
    *
    *  Note: There is only one anagram of an empty sentence.
    */
-  def sentenceAnagrams(sentence: Sentence): List[Sentence] = ???
+  def sentenceAnagrams(sentence: Sentence): List[Sentence] = {
+    val occurrences: Occurrences = sentenceOccurrences(sentence)
+
+    val extendedOccurrences: Occurrences = occurrences.foldLeft(List[Occurrences]()) {
+      (acc: List[Occurrences], pair: (Char, Int)) => (for (i <- 1 to pair._2) yield (pair._1, i)).toList :: acc
+    }.reverse.flatten  // extendedOccurrences: List[List[(Char, Int)]]
+
+    val possibleSentences: Map[Occurrences, Sentence] = dictionaryByOccurrences.filter(
+      pair => pair._1.forall(extendedOccurrences.contains(_))
+    )
+
+    // Here I make them a list
+    val possibleWords: List[(Occurrences, Word)] = possibleSentences.foldLeft(List[(Occurrences, Word)]()) {
+      (acc: List[(Occurrences, Word)], pair: (Occurrences, Sentence)) => {
+        val subList: List[(Occurrences, Word)] = pair._2.foldLeft(List[(Occurrences, Word)]()) {
+          (acc: List[(Occurrences, Word)], word: Word) => (pair._1, word) :: acc
+        }
+        acc ::: subList
+      }
+    }
+
+    // And here I compute the possible combinations
+    def inner(availableWords: List[(Occurrences, Word)], acc: List[Sentence]): List[Sentence] = {
+      if(availableWords.isEmpty) acc
+      else {
+        val head: (Occurrences, Word) = availableWords.head
+        val tail: List[(Occurrences, Word)] = availableWords.tail
+        val remainingOccurrences: Occurrences = subtract(occurrences, head._1)
+        val remainingOccurrencesExtended: Occurrences = remainingOccurrences.foldLeft(List[Occurrences]()) {
+          (acc: List[Occurrences], pair: (Char, Int)) => (for (i <- 1 to pair._2) yield (pair._1, i)).toList :: acc
+        }.reverse.flatten
+        val remainingAvailableWords: List[(Occurrences, Word)] = tail.filter(pair => pair._1.forall(remainingOccurrencesExtended.contains(_)))
+        if (remainingAvailableWords.nonEmpty) {
+          val thing: List[List[(Occurrences, Word)]] = (head :: remainingAvailableWords).toSet.subsets.map(_.toList).toList
+          val compactedThing: List[(Occurrences, Sentence)] =
+            thing.map { list: List[(Occurrences, Word)] =>
+              (list.unzip._1.flatten.groupBy(_._1).mapValues(_.map(_._2).sum).toList.sortWith(_._1 < _._1), list.unzip._2) }
+          val filteredThing: List[(Occurrences, Sentence)] = compactedThing.filter(pair => pair._1 == occurrences)
+          inner(tail, filteredThing.map(_._2) ::: acc)
+        } else inner(tail, acc)
+      }
+    }
+
+    inner(possibleWords, List[Sentence]()).flatMap(sentence => sentence.permutations)
+  }
 }
